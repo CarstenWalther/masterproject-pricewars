@@ -48,7 +48,7 @@ def dump_topic(topic, output_dir):
 def dump_kafka(output_dir):
     kafka_dir = os.path.join(output_dir, 'kafka')
     os.mkdir(kafka_dir)
-    topics = ['buyOffer', 'holding_cost', 'marketSituation', 'producer']
+    topics = ['buyOffer', 'holding_cost', 'marketSituation', 'producer', 'addOffer', 'updateOffer']
     for topic in topics:
         dump_topic(topic, kafka_dir)
 

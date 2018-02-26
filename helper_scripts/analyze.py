@@ -48,6 +48,7 @@ def analyze_kafka_dump(directory):
                              order_cost[merchant_id], profit[merchant_id]])
 
     create_inventory_graph(directory, merchant_id_mapping)
+    create_price_graph(directory, merchant_id_mapping)
 
 
 def create_inventory_graph(directory, merchant_id_mapping):
@@ -94,6 +95,30 @@ def create_inventory_graph(directory, merchant_id_mapping):
     fig.legend()
     fig.autofmt_xdate()
     fig.savefig(os.path.join(directory, 'inventory_levels'))
+
+
+def create_price_graph(directory, merchant_id_mapping):
+    new_offers = json.load(open(os.path.join(directory, 'kafka', 'addOffer')))
+    updated_offers = json.load(open(os.path.join(directory, 'kafka', 'updateOffer')))
+    offers = new_offers + updated_offers
+    for offer in offers:
+        # TODO: ues better conversion; strptime discards timezone
+        offer['timestamp'] = datetime.datetime.strptime(offer['timestamp'], '%Y-%m-%dT%H:%M:%S.%fZ')
+    offers.sort(key=lambda o: o['timestamp'])
+
+    prices = defaultdict(list)
+    # Assumption: each merchant has only one active offer
+    for offer in offers:
+        prices[offer['merchant_id']].append((offer['timestamp'], offer['price']))
+
+    fig, ax = plt.subplots()
+    for merchant_id in prices:
+        dates, prices = zip(*prices[merchant_id])
+        ax.plot(dates, prices, label=merchant_id_mapping[merchant_id])
+    plt.ylabel('Price')
+    fig.legend()
+    fig.autofmt_xdate()
+    fig.savefig(os.path.join(directory, 'prices'))
 
 
 def main():
