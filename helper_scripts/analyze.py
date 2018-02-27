@@ -87,11 +87,14 @@ def create_inventory_graph(directory, merchant_id_mapping):
             sale_index += 1
 
     fig, ax = plt.subplots()
+    prices = create_price_graph(directory, merchant_id_mapping)
     for merchant_id in inventory_progressions:
         dates, inventory_changes = zip(*inventory_progressions[merchant_id])
+        price_dates, prices = zip(*prices[merchant_id])
         inventory_levels = list(itertools.accumulate(inventory_changes))
-        ax.plot(dates, inventory_levels, label=merchant_id_mapping[merchant_id])
-    plt.ylabel('Inventory Level')
+        ax.plot(dates, inventory_levels, label='Lagerstand')
+        ax.plot(price_dates, prices, 'r', label='Preis')
+    #plt.ylabel('Inventory Level')
     fig.legend()
     fig.autofmt_xdate()
     fig.savefig(os.path.join(directory, 'inventory_levels'))
@@ -111,6 +114,7 @@ def create_price_graph(directory, merchant_id_mapping):
     for offer in offers:
         prices[offer['merchant_id']].append((offer['timestamp'], offer['price']))
 
+    return prices
     fig, ax = plt.subplots()
     for merchant_id in prices:
         dates, prices = zip(*prices[merchant_id])
@@ -119,6 +123,7 @@ def create_price_graph(directory, merchant_id_mapping):
     fig.legend()
     fig.autofmt_xdate()
     fig.savefig(os.path.join(directory, 'prices'))
+
 
 
 def main():
