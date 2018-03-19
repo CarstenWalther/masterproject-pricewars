@@ -89,11 +89,13 @@ def create_inventory_graph(directory, merchant_id_mapping):
     for merchant_id in inventory_progressions:
         dates, inventory_changes = zip(*inventory_progressions[merchant_id])
         inventory_levels = list(itertools.accumulate(inventory_changes))
-        ax.plot(dates, inventory_levels, label=merchant_id_mapping[merchant_id])
+        ax.step(dates, inventory_levels, where='post', label=merchant_id_mapping[merchant_id])
     plt.ylabel('Inventory Level')
+    plt.xlabel('Time')
     fig.legend()
     fig.autofmt_xdate()
     fig.savefig(os.path.join(directory, 'inventory_levels'))
+    fig.show()
 
 
 def main():
