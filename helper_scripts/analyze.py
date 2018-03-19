@@ -48,6 +48,7 @@ def analyze_kafka_dump(directory):
                              order_cost[merchant_id], profit[merchant_id]])
 
     create_inventory_graph(directory, merchant_id_mapping)
+    create_price_graph(directory, merchant_id_mapping)
 
 
 def create_inventory_graph(directory, merchant_id_mapping):
@@ -57,12 +58,8 @@ def create_inventory_graph(directory, merchant_id_mapping):
     sales = json.load(open(os.path.join(directory, 'kafka', 'buyOffer')))
     orders = json.load(open(os.path.join(directory, 'kafka', 'producer')))
     sales = [sale for sale in sales if sale['http_code'] == 200]
-    for sale in sales:
-        # TODO: ues better conversion; strptime discards timezone
-        sale['timestamp'] = datetime.datetime.strptime(sale['timestamp'], '%Y-%m-%dT%H:%M:%S.%fZ')
-    for order in orders:
-        # TODO: ues better conversion; strptime discards timezone
-        order['timestamp'] = datetime.datetime.strptime(order['timestamp'], '%Y-%m-%dT%H:%M:%S.%fZ')
+    convert_timestamps(sales)
+    convert_timestamps(orders)
     sale_index = 0
     order_index = 0
     inventory_progressions = defaultdict(list)
@@ -94,8 +91,51 @@ def create_inventory_graph(directory, merchant_id_mapping):
     plt.xlabel('Time')
     fig.legend()
     fig.autofmt_xdate()
-    fig.savefig(os.path.join(directory, 'inventory_levels'))
-    fig.show()
+    fig.savefig(os.path.join(directory, 'inventory_levels.svg'))
+
+
+def create_price_graph(directory, merchant_id_mapping):
+    offer_updates = json.load(open(os.path.join(directory, 'kafka', 'addOffer')))
+    offer_updates += json.load(open(os.path.join(directory, 'kafka', 'updateOffer')))
+    offer_updates = [offer for offer in offer_updates if offer['http_code'] == 200]
+    convert_timestamps(offer_updates)
+    offer_updates.sort(key=lambda offer: offer['timestamp'])
+
+    # TODO: comment
+    color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    merchants_visited = 0
+    merchant_colors = {}
+    merchant_by_offer = {}
+
+    prices_over_times_by_offer_id = defaultdict(list)
+    for offer in offer_updates:
+        offer_id = offer['offer_id']
+        prices_over_times_by_offer_id[offer_id].append((offer['price'], offer['timestamp']))
+        if offer_id not in merchant_by_offer:
+            merchant_id = offer['merchant_id']
+            if merchant_id not in merchant_colors:
+                merchant_colors[merchant_id] = color_cycle[merchants_visited % len(color_cycle)]
+                merchants_visited += 1
+            merchant_by_offer[offer_id] = merchant_id
+
+    fig, ax = plt.subplots()
+    for offer_id, prices_over_time in prices_over_times_by_offer_id.items():
+        prices, times = zip(*prices_over_time)
+        merchant_id = merchant_by_offer[offer_id]
+        color = merchant_colors[merchant_id]
+        label = 'Offer {} ({})'.format(offer_id, merchant_id_mapping[merchant_id])
+        ax.step(times, prices, where='post', color=color, label=label)
+    plt.ylabel('Price')
+    plt.xlabel('Time')
+    fig.legend()
+    fig.autofmt_xdate()
+    fig.savefig(os.path.join(directory, 'prices.svg'))
+
+
+def convert_timestamps(events):
+    for event in events:
+        # TODO: use better conversion; strptime discards timezone
+        event['timestamp'] = datetime.datetime.strptime(event['timestamp'], '%Y-%m-%dT%H:%M:%S.%fZ')
 
 
 def main():
