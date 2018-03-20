@@ -12,6 +12,7 @@ import json
 from collections import defaultdict
 
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 
 
 def load_merchant_id_mapping(directory):
@@ -48,7 +49,8 @@ def analyze_kafka_dump(directory):
                              order_cost[merchant_id], profit[merchant_id]])
 
     create_inventory_graph(directory, merchant_id_mapping)
-    create_price_graph(directory, merchant_id_mapping)
+    #create_price_graph(directory, merchant_id_mapping)
+    create_price_graph_reduced(directory, merchant_id_mapping)
 
 
 def create_inventory_graph(directory, merchant_id_mapping):
@@ -83,10 +85,12 @@ def create_inventory_graph(directory, merchant_id_mapping):
             sale_index += 1
 
     fig, ax = plt.subplots()
+    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
     for merchant_id in inventory_progressions:
         dates, inventory_changes = zip(*inventory_progressions[merchant_id])
         inventory_levels = list(itertools.accumulate(inventory_changes))
         ax.step(dates, inventory_levels, where='post', label=merchant_id_mapping[merchant_id])
+    ax.set_ylim(ymin=0)
     plt.ylabel('Inventory Level')
     plt.xlabel('Time')
     fig.legend()
@@ -125,11 +129,36 @@ def create_price_graph(directory, merchant_id_mapping):
         color = merchant_colors[merchant_id]
         label = 'Offer {} ({})'.format(offer_id, merchant_id_mapping[merchant_id])
         ax.step(times, prices, where='post', color=color, label=label)
+    ax.set_ylim(ymin=0)
     plt.ylabel('Price')
     plt.xlabel('Time')
     fig.legend()
     fig.autofmt_xdate()
     fig.savefig(os.path.join(directory, 'prices.svg'))
+
+
+def create_price_graph_reduced(directory, merchant_id_mapping):
+    offer_updates = json.load(open(os.path.join(directory, 'kafka', 'addOffer')))
+    offer_updates += json.load(open(os.path.join(directory, 'kafka', 'updateOffer')))
+    offer_updates = [offer for offer in offer_updates if offer['http_code'] == 200]
+    convert_timestamps(offer_updates)
+    offer_updates.sort(key=lambda offer: offer['timestamp'])
+
+    prices_over_times_by_merchant = defaultdict(list)
+    for offer in offer_updates:
+        merchant_id = offer['merchant_id']
+        prices_over_times_by_merchant[merchant_id].append((offer['price'], offer['timestamp']))
+
+    fig, ax = plt.subplots()
+    for merchant_id, prices_over_time in prices_over_times_by_merchant.items():
+        prices, times = zip(*prices_over_time)
+        ax.step(times, prices, where='post', label=merchant_id_mapping[merchant_id])
+    ax.set_ylim(ymin=0)
+    plt.ylabel('Price')
+    plt.xlabel('Time')
+    fig.legend()
+    fig.autofmt_xdate()
+    fig.savefig(os.path.join(directory, 'prices_reduced.svg'))
 
 
 def convert_timestamps(events):
