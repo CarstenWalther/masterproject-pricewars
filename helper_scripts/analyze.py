@@ -13,6 +13,7 @@ from collections import defaultdict
 
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
+import matplotlib.dates as mdates
 
 
 def load_merchant_id_mapping(directory):
@@ -85,8 +86,12 @@ def create_inventory_graph(directory, merchant_id_mapping):
             sale_index += 1
 
     fig, ax = plt.subplots()
+    minutes = mdates.MinuteLocator()
+    dateFmt = mdates.DateFormatter('%H:%M')
+    ax.xaxis.set_major_locator(minutes)
+    ax.xaxis.set_major_formatter(dateFmt)
     ax.yaxis.set_major_locator(MaxNLocator(integer=True))
-    for merchant_id in inventory_progressions:
+    for merchant_id in sorted(inventory_progressions, key=lambda merchant_id: merchant_id_mapping[merchant_id]):
         dates, inventory_changes = zip(*inventory_progressions[merchant_id])
         inventory_levels = list(itertools.accumulate(inventory_changes))
         ax.step(dates, inventory_levels, where='post', label=merchant_id_mapping[merchant_id])
@@ -94,7 +99,6 @@ def create_inventory_graph(directory, merchant_id_mapping):
     plt.ylabel('Inventory Level')
     plt.xlabel('Time')
     fig.legend()
-    fig.autofmt_xdate()
     fig.savefig(os.path.join(directory, 'inventory_levels.svg'))
 
 
@@ -129,7 +133,6 @@ def create_price_graph(directory, merchant_id_mapping):
         color = merchant_colors[merchant_id]
         label = 'Offer {} ({})'.format(offer_id, merchant_id_mapping[merchant_id])
         ax.step(times, prices, where='post', color=color, label=label)
-    ax.set_ylim(ymin=0)
     plt.ylabel('Price')
     plt.xlabel('Time')
     fig.legend()
@@ -150,14 +153,16 @@ def create_price_graph_reduced(directory, merchant_id_mapping):
         prices_over_times_by_merchant[merchant_id].append((offer['price'], offer['timestamp']))
 
     fig, ax = plt.subplots()
-    for merchant_id, prices_over_time in prices_over_times_by_merchant.items():
+    minutes = mdates.MinuteLocator()
+    dateFmt = mdates.DateFormatter('%H:%M')
+    ax.xaxis.set_major_locator(minutes)
+    ax.xaxis.set_major_formatter(dateFmt)
+    for merchant_id, prices_over_time in sorted(prices_over_times_by_merchant.items(), key=lambda key_value: merchant_id_mapping[key_value[0]]):
         prices, times = zip(*prices_over_time)
         ax.step(times, prices, where='post', label=merchant_id_mapping[merchant_id])
-    ax.set_ylim(ymin=0)
     plt.ylabel('Price')
     plt.xlabel('Time')
     fig.legend()
-    fig.autofmt_xdate()
     fig.savefig(os.path.join(directory, 'prices_reduced.svg'))
 
 
